@@ -2,13 +2,12 @@ import { Body } from "./body";
 import { Manifold } from "./manifold";
 import { Vec2 } from "./vec2";
 
-const gravity = new Vec2(0, 10.0);
-
 export class World {
   private dt: number;
   private iterations: number;
   private bodies: Array<Body> = [];
   private contacts: Array<Manifold> = [];
+  private gravity = new Vec2(0, 10.0);
 
   constructor(dt: number, iterations: number) {
     this.dt = dt;
@@ -35,17 +34,31 @@ export class World {
     }
 
     for (let i = 0; i < this.bodies.length; ++i) {
-        this.integrageForces(this.bodies[i], this.dt);
+      this.integrateForces(this.bodies[i], this.dt);
     }
 
     for (let i = 0; i < this.contacts.length; ++i) {
-        this.contacts[i].initialize();
+      this.contacts[i].initialize();
     }
 
     for (let j = 0; j < this.iterations; ++j) {
-        for (let i = 0; i < this.contacts.length; ++i) {
-            this.contacts[i].applyImpulse();
-        }
+      for (let i = 0; i < this.contacts.length; ++i) {
+        this.contacts[i].applyImpulse();
+      }
+    }
+
+    for (const body of this.bodies) {
+      this.integrateVelocity(body, this.dt);
+    }
+
+    // 校正位置
+    for (const contact of this.contacts) {
+      contact.positionalCorrection();
+    }
+
+    // 清除所有受力
+    for (const body of this.bodies) {
+      body.force = new Vec2(0, 0);
     }
   }
 
@@ -53,7 +66,7 @@ export class World {
     this.bodies.push(body);
   }
 
-  private integrageForces(body: Body, dt: number) {
+  private integrateForces(body: Body, dt: number) {
     if (body.inverse_mass === 0) {
       return;
     }
@@ -61,9 +74,18 @@ export class World {
     body.velocity = Vec2.add(
       body.velocity,
       Vec2.product(
-        Vec2.add(Vec2.product(body.force, body.inverse_mass), gravity),
+        Vec2.add(Vec2.product(body.force, body.inverse_mass), this.gravity),
         dt / 2
       )
     );
+  }
+
+  private integrateVelocity(body: Body, dt: number) {
+    if (body.inverse_mass === 0) {
+      return;
+    }
+    body.position = Vec2.add(body.position, Vec2.product(body.velocity, dt));
+    // TODO: Why ??
+    this.integrateForces(body, dt);
   }
 }

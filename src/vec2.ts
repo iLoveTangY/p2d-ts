@@ -6,6 +6,10 @@ export class Vec2 {
     this.y = y;
   }
 
+  clone() {
+    return new Vec2(this.x, this.y);
+  }
+
   static add(left: Vec2, right: number): Vec2;
   static add(left: Vec2, right: Vec2): Vec2;
   static add(left: Vec2, right: number | Vec2): Vec2 {
@@ -56,6 +60,10 @@ export class Vec2 {
 
   static minus(vec: Vec2) {
     return new Vec2(-vec.x, -vec.y);
+  }
+
+  equal(right: Vec2) {
+    return this.x === right.x && this.y === right.y;
   }
 
   normalize() {

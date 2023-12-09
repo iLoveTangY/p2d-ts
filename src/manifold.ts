@@ -1,5 +1,5 @@
 import { Body } from "./body";
-import { Circle, ShapeType } from "./shape";
+import { AABB, Circle, ShapeType } from "./shape";
 import { Vec2 } from "./vec2";
 
 type DispatchFunction = (m: Manifold, a: Body, b: Body) => void;
@@ -24,9 +24,9 @@ export class Manifold {
   a: Body;
   b: Body;
 
-  normal: Vec2; // 单位向量，碰撞法线，表明两个物体的碰撞方向，在我们的物理引擎中采用相对于 B 的碰撞方向
-  penetration: number;
-  e: number; // 计算后的恢复系数
+  normal: Vec2 = new Vec2(0, 1); // 单位向量，碰撞法线，表明两个物体的碰撞方向，在我们的物理引擎中采用相对于 B 的碰撞方向
+  penetration: number = 0;
+  e: number = 0; // 计算后的恢复系数
   contacts: Array<Vec2> = []; // 碰撞发生的位置
 
   constructor(a: Body, b: Body) {
@@ -36,7 +36,14 @@ export class Manifold {
 
   // 生成碰撞信息
   solve() {
-    DISPATCHER[this.a.shape.getType()][this.b.shape.getType()](this, this.a, this.b);
+    const func = DISPATCHER.get(this.a.shape.shapeType)?.get(
+      this.b.shape.shapeType
+    );
+    if (func) {
+      func(this, this.a, this.b);
+    } else {
+      throw Error("Invalid shape type");
+    }
   }
 
   // 计算一些冲量求解的过程中需要的数据
@@ -71,7 +78,13 @@ export class Manifold {
     // }
   }
 
-  positionalCorrection() {}
+  positionalCorrection() {
+    const kSlop = 0.05; // Penetration allowance
+    const percent = 0.4; // Penetration percentage to correct
+    const correction = Vec2.product(this.normal, (Math.max( this.penetration - kSlop, 0 ) / (this.a.inverse_mass + this.b.inverse_mass)) * percent);
+    this.a.position = Vec2.add(this.a.position, Vec2.product(correction, this.a.inverse_mass));
+    this.b.position = Vec2.add(this.b.position, Vec2.product(correction, this.b.inverse_mass));
+  }
 
   private infiniteMassCorrection() {
     this.a.velocity = new Vec2(0, 0);
@@ -104,6 +117,50 @@ function circle2circle(m: Manifold, a: Body, b: Body) {
     );
   }
 }
-function circle2AABB(m: Manifold, a: Body, b: Body) {}
+function circle2AABB(m: Manifold, a: Body, b: Body) {
+  AABB2circle(m, b, a);
+}
 function AABB2AABB(m: Manifold, a: Body, b: Body) {}
-function AABB2circle(m: Manifold, a: Body, b: Body) {}
+function AABB2circle(m: Manifold, a: Body, b: Body) {
+  // 搞清楚具体计算过程: https://code.tutsplus.com/how-to-create-a-custom-2d-physics-engine-the-basics-and-impulse-resolution--gamedev-6331t
+  const aabb = a.shape as AABB;
+  const circle = b.shape as Circle;
+  const n = Vec2.sub(b.position, a.position);
+  let closet = n.clone();
+  const halfExtend = Vec2.div(Vec2.sub(aabb.max, aabb.min), 2);
+  closet = Vec2.clamp(closet, Vec2.minus(halfExtend), halfExtend);
+
+  let inside = false;
+  if (closet.equal(n)) {
+    // 圆心位于 AABB 内部
+    inside = true;
+    if (Math.abs(n.x) > Math.abs(n.y)) {
+      if (closet.x > 0) {
+        closet.x = halfExtend.x;
+      } else {
+        closet.x = -halfExtend.x;
+      }
+    } else {
+      if (closet.y > 0) {
+        closet.y = halfExtend.y;
+      } else {
+        closet.y = -halfExtend.y;
+      }
+    }
+  }
+  const normal = Vec2.sub(n, closet);
+  let d = normal.lenSqr();
+  const r = circle.getRadius();
+  if (d > r * r && !inside) {
+    return;
+  }
+  m.contacts.push(closet);
+  d = Math.sqrt(d);
+  if (inside) {
+    m.normal = Vec2.minus(n);
+    m.penetration = r - d;
+  } else {
+    m.normal = n;
+    m.penetration = r - d;
+  }
+}
