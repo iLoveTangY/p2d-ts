@@ -34,11 +34,15 @@ export class AABB implements Shape {
     min: Vec2;
 
     shapeType: ShapeType = ShapeType.AABB;
-    density: number = 1.0;
+    density: number = 3.0;
 
     constructor(min: Vec2, max: Vec2) {
         this.max = max.clone();
         this.min = min.clone();
+    }
+
+    getCenter() {
+        return Vec2.div(Vec2.add(this.min, this.max), 2);
     }
 
     computeMass() {

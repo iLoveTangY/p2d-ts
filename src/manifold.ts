@@ -81,7 +81,7 @@ export class Manifold {
   positionalCorrection() {
     const kSlop = 0.05; // Penetration allowance
     const percent = 0.4; // Penetration percentage to correct
-    const correction = Vec2.product(this.normal, (Math.max( this.penetration - kSlop, 0 ) / (this.a.inverse_mass + this.b.inverse_mass)) * percent);
+    const correction = Vec2.product(this.normal, (Math.max(this.penetration - kSlop, 0) / (this.a.inverse_mass + this.b.inverse_mass)) * percent);
     this.a.position = Vec2.add(this.a.position, Vec2.product(correction, this.a.inverse_mass));
     this.b.position = Vec2.add(this.b.position, Vec2.product(correction, this.b.inverse_mass));
   }
@@ -98,7 +98,7 @@ function circle2circle(m: Manifold, a: Body, b: Body) {
   const n = Vec2.sub(b.position, a.position);
   const r = circleA.getRadius() + circleB.getRadius();
   const dist_sqr = n.lenSqr();
-  if (dist_sqr >= r) {
+  if (dist_sqr >= r * r) {
     // 无碰撞发生
     return;
   }
@@ -120,47 +120,56 @@ function circle2circle(m: Manifold, a: Body, b: Body) {
 function circle2AABB(m: Manifold, a: Body, b: Body) {
   AABB2circle(m, b, a);
 }
-function AABB2AABB(m: Manifold, a: Body, b: Body) {}
+function AABB2AABB(m: Manifold, a: Body, b: Body) { }
 function AABB2circle(m: Manifold, a: Body, b: Body) {
-  // 搞清楚具体计算过程: https://code.tutsplus.com/how-to-create-a-custom-2d-physics-engine-the-basics-and-impulse-resolution--gamedev-6331t
+  // https://www.zhihu.com/question/24251545
+  // FIXME: 当小球的速度过快，在一次计算的时间内冲入到 AABB 的内部时会出现normal出错的bug
   const aabb = a.shape as AABB;
   const circle = b.shape as Circle;
-  const n = Vec2.sub(b.position, a.position);
-  let closet = n.clone();
+  let difference = Vec2.sub(b.position, a.position);
   const halfExtend = Vec2.div(Vec2.sub(aabb.max, aabb.min), 2);
-  closet = Vec2.clamp(closet, Vec2.minus(halfExtend), halfExtend);
 
-  let inside = false;
-  if (closet.equal(n)) {
-    // 圆心位于 AABB 内部
-    inside = true;
-    if (Math.abs(n.x) > Math.abs(n.y)) {
-      if (closet.x > 0) {
-        closet.x = halfExtend.x;
-      } else {
-        closet.x = -halfExtend.x;
-      }
-    } else {
-      if (closet.y > 0) {
-        closet.y = halfExtend.y;
-      } else {
-        closet.y = -halfExtend.y;
-      }
-    }
+  const clamped = Vec2.clamp(difference, Vec2.minus(halfExtend), halfExtend);
+  const closet = Vec2.add(a.position, clamped);
+  difference = Vec2.sub(closet, b.position);
+  if (difference.lenSqr() < circle.getRadius() * circle.getRadius()) {
+    m.contacts.push(closet);
+    m.normal = Vec2.sub(b.position, closet);
+    m.normal.normalize();
+    m.penetration = 0;
   }
-  const normal = Vec2.sub(n, closet);
-  let d = normal.lenSqr();
-  const r = circle.getRadius();
-  if (d > r * r && !inside) {
-    return;
-  }
-  m.contacts.push(closet);
-  d = Math.sqrt(d);
-  if (inside) {
-    m.normal = Vec2.minus(n);
-    m.penetration = r - d;
-  } else {
-    m.normal = n;
-    m.penetration = r - d;
-  }
+
+  // let inside = false;
+  // if (closet.equal(n)) {
+  //   // 圆心位于 AABB 内部
+  //   inside = true;
+  //   if (Math.abs(n.x) > Math.abs(n.y)) {
+  //     if (closet.x > 0) {
+  //       closet.x = halfExtend.x;
+  //     } else {
+  //       closet.x = -halfExtend.x;
+  //     }
+  //   } else {
+  //     if (closet.y > 0) {
+  //       closet.y = halfExtend.y;
+  //     } else {
+  //       closet.y = -halfExtend.y;
+  //     }
+  //   }
+  // }
+  // const normal = Vec2.sub(n, closet);
+  // let d = normal.lenSqr();
+  // const r = circle.getRadius();
+  // if (d > r * r && !inside) {
+  //   return;
+  // }
+  // m.contacts.push(closet);
+  // d = Math.sqrt(d);
+  // if (inside) {
+  //   m.normal = Vec2.minus(n);
+  //   m.penetration = r - d;
+  // } else {
+  //   m.normal = n;
+  //   m.penetration = r - d;
+  // }
 }

@@ -1,4 +1,4 @@
-import { Shape } from "./shape";
+import { AABB, Circle, Shape, ShapeType } from "./shape";
 import { Vec2 } from "./vec2";
 
 export class Body {
@@ -33,5 +33,32 @@ export class Body {
   makeStatic() {
     this.mass = 0;
     this.inverse_mass = 0;
+  }
+
+  private renderCircle(ctx: CanvasRenderingContext2D, circle: Circle) {
+    ctx.beginPath();
+    ctx.fillStyle = "rgb(235, 235, 235)";
+    ctx.arc(this.position.x, this.position.y, circle.getRadius(), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private renderAABB(ctx: CanvasRenderingContext2D, rect: AABB) {
+    ctx.beginPath();
+    ctx.fillStyle = "rgb(72, 77, 116)";
+    
+    const halfExtend = Vec2.div(Vec2.sub(rect.max, rect.min), 2);
+    const leftTop = Vec2.sub(this.position, halfExtend);
+    ctx.fillRect(leftTop.x, leftTop.y, halfExtend.x * 2, halfExtend.y * 2);
+  }
+
+  render(ctx: CanvasRenderingContext2D) {
+    switch (this.shape.shapeType) {
+      case ShapeType.Circle:
+        this.renderCircle(ctx, this.shape as Circle);
+        break;
+      case ShapeType.AABB:
+        this.renderAABB(ctx, this.shape as AABB);
+        break;
+    }
   }
 }

@@ -7,11 +7,16 @@ export class World {
   private iterations: number;
   private bodies: Array<Body> = [];
   private contacts: Array<Manifold> = [];
-  private gravity = new Vec2(0, 10.0);
+  private gravityScale = 10.0;
+  private gravity = new Vec2(0, 10.0 * this.gravityScale);
 
   constructor(dt: number, iterations: number) {
     this.dt = dt;
     this.iterations = iterations;
+  }
+
+  getBodies() {
+    return this.bodies;
   }
 
   step() {

@@ -70,10 +70,13 @@ export class Vec2 {
     const length = this.distance();
     this.x /= length;
     this.y /= length;
+    if (isNaN(this.x) || isNaN(this.y)) {
+      console.error("Alert!!!!");
+    }
   }
 
   lenSqr(): number {
-    return this.x * this.x + this.y + this.y;
+    return this.x * this.x + this.y * this.y;
   }
 
   distance() {
