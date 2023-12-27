@@ -20,6 +20,10 @@ export class Vec2 {
     }
   }
 
+  static equal(left: Vec2, right: Vec2): boolean {
+    return left.x === right.x && left.y === right.y;
+  }
+
   static sub(left: Vec2, right: number): Vec2;
   static sub(left: Vec2, right: Vec2): Vec2;
   static sub(left: Vec2, right: number | Vec2): Vec2 {

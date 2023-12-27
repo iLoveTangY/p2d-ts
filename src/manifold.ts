@@ -79,11 +79,11 @@ export class Manifold {
   }
 
   positionalCorrection() {
-    const kSlop = 0.05; // Penetration allowance
-    const percent = 0.4; // Penetration percentage to correct
-    const correction = Vec2.product(this.normal, (Math.max(this.penetration - kSlop, 0) / (this.a.inverse_mass + this.b.inverse_mass)) * percent);
-    this.a.position = Vec2.add(this.a.position, Vec2.product(correction, this.a.inverse_mass));
-    this.b.position = Vec2.add(this.b.position, Vec2.product(correction, this.b.inverse_mass));
+    // const kSlop = 0.05; // Penetration allowance
+    // const percent = 0.4; // Penetration percentage to correct
+    // const correction = Vec2.product(this.normal, (Math.max(this.penetration - kSlop, 0) / (this.a.inverse_mass + this.b.inverse_mass)) * percent);
+    // this.a.position = Vec2.add(this.a.position, Vec2.product(correction, this.a.inverse_mass));
+    // this.b.position = Vec2.add(this.b.position, Vec2.product(correction, this.b.inverse_mass));
   }
 
   private infiniteMassCorrection() {
@@ -119,8 +119,41 @@ function circle2circle(m: Manifold, a: Body, b: Body) {
 }
 function circle2AABB(m: Manifold, a: Body, b: Body) {
   AABB2circle(m, b, a);
+  m.normal = Vec2.minus(m.normal);
 }
-function AABB2AABB(m: Manifold, a: Body, b: Body) { }
+function AABB2AABB(m: Manifold, a: Body, b: Body) {
+  const firstAABB = a.shape as AABB;
+  const secondAABB = b.shape as AABB;
+
+  const n = Vec2.sub(b.position, a.position);
+  let aExtent = (firstAABB.max.x - firstAABB.min.x) / 2;
+  let bExtent = (secondAABB.max.x - secondAABB.min.x) / 2;
+  const xOverlap = aExtent + bExtent - Math.abs(n.x);
+  if (xOverlap > 0) {
+    aExtent = (firstAABB.max.y - firstAABB.min.y) / 2;
+    bExtent = (secondAABB.max.y - secondAABB.min.y) / 2;
+    const yOverlap = aExtent + bExtent - Math.abs(n.y);
+    if (yOverlap > 0) {
+      // 重叠小的方向是碰撞发生的方向
+      if (xOverlap < yOverlap) {
+        if (n.x < 0) {
+          m.normal = new Vec2(-1, 0);
+        } else {
+          m.normal = new Vec2(1, 0);
+        }
+        m.penetration = xOverlap;
+      } else {
+        if (n.y < 0) {
+          m.normal = new Vec2(0, -1);
+        } else {
+          m.normal = new Vec2(0, 1);
+        }
+        m.penetration = yOverlap;
+      }
+      m.contacts.push(new Vec2(0, 0));
+    }
+  }
+}
 function AABB2circle(m: Manifold, a: Body, b: Body) {
   // https://www.zhihu.com/question/24251545
   // FIXME: 当小球的速度过快，在一次计算的时间内冲入到 AABB 的内部时会出现normal出错的bug
@@ -134,6 +167,9 @@ function AABB2circle(m: Manifold, a: Body, b: Body) {
   difference = Vec2.sub(closet, b.position);
   if (difference.lenSqr() < circle.getRadius() * circle.getRadius()) {
     m.contacts.push(closet);
+    if (Vec2.equal(b.position, closet)) {
+      console.error("Equal sub");
+    }
     m.normal = Vec2.sub(b.position, closet);
     m.normal.normalize();
     m.penetration = 0;
