@@ -27,6 +27,8 @@ export class Manifold {
   normal: Vec2 = new Vec2(0, 1); // 单位向量，碰撞法线，表明两个物体的碰撞方向，在我们的物理引擎中采用相对于 B 的碰撞方向
   penetration: number = 0;
   e: number = 0; // 计算后的恢复系数
+  df: number = 0; // 计算后的动摩擦力
+  sf: number = 0; // 计算后的静摩擦力
   contacts: Array<Vec2> = []; // 碰撞发生的位置
 
   constructor(a: Body, b: Body) {
@@ -49,6 +51,10 @@ export class Manifold {
   // 计算一些冲量求解的过程中需要的数据
   initialize() {
     this.e = Math.min(this.a.restitution, this.b.restitution);
+    // this.sf = this.a.static_fraction;
+    // this.df = this.b.static_fraction;
+    this.sf = Math.sqrt(this.a.static_fraction * this.a.static_fraction + this.b.static_fraction * this.b.static_fraction);
+    this.df = Math.sqrt(this.a.dynamic_fraction * this.a.dynamic_fraction + this.b.dynamic_fraction * this.b.dynamic_fraction);
   }
 
   applyImpulse() {
@@ -75,6 +81,35 @@ export class Manifold {
     const impulse = Vec2.product(this.normal, j);
     this.a.applyImpulse(Vec2.minus(impulse));
     this.b.applyImpulse(impulse);
+
+    // 应用摩擦力
+    const rv_2 = Vec2.sub(this.b.velocity, this.a.velocity);
+    const t = Vec2.sub(rv_2, Vec2.product(this.normal, Vec2.dot(rv_2, this.normal)));
+    // 如果 t 为 0，不需要计算摩擦力
+    if (Math.abs(t.lenSqr() - 0.0) <= 0.0001) {
+      return;
+    }
+    // console.log('t = ', t);
+    t.normalize();
+    // 计算切线方向的冲量幅值
+    let jt = -Vec2.dot(rv_2, t);
+    jt /= inv_mass_sum;
+    // jt /= contact_num;
+    if (Math.abs(jt - 0) < 0.00001) {
+      return;
+    }
+    console.log(`computed jt = ${jt}, j = ${j}`);
+    // 库仑定律
+    let tangent_impulse: Vec2;
+    if (Math.abs(jt) < j * this.sf) {
+      tangent_impulse = Vec2.product(t, jt);
+    } else {
+      tangent_impulse = Vec2.product(t, -j * this.df);
+    }
+    console.log(`tangent_impulse = (${tangent_impulse.x}, ${tangent_impulse.y})`);
+    this.a.applyImpulse(Vec2.minus(tangent_impulse));
+    this.b.applyImpulse(tangent_impulse);
+
     // }
   }
 

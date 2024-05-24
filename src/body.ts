@@ -5,6 +5,8 @@ export class Body {
   shape: Shape;
   position: Vec2;
   velocity: Vec2 = new Vec2(0, 0);
+  static_fraction: number = 0.1;  // 静摩擦系数
+  dynamic_fraction: number = 0.05; // 动摩擦系数
   restitution: number = 1;
   force: Vec2 = new Vec2(0, 0);
 
@@ -17,6 +19,7 @@ export class Body {
     this.restitution = restitution;
     this.mass = shape.computeMass();
     this.inverse_mass = this.mass !== 0 ? 1 / this.mass : 0;
+    console.log(`inverse mass = ${this.inverse_mass}`);
   }
 
   applyForce(f: Vec2) {
@@ -24,6 +27,8 @@ export class Body {
   }
 
   applyImpulse(impulse: Vec2) {
+    console.log(`this.iverse_mass = ${this.inverse_mass}`);
+    console.log(`product = ${impulse.x * this.inverse_mass}`);
     this.velocity = Vec2.add(
       this.velocity,
       Vec2.product(impulse, this.inverse_mass)

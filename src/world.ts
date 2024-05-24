@@ -71,6 +71,10 @@ export class World {
     this.bodies.push(body);
   }
 
+  getContacts() {
+    return this.contacts;
+  }
+
   private integrateForces(body: Body, dt: number) {
     if (body.inverse_mass === 0) {
       return;
